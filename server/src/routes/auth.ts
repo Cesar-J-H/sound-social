@@ -3,6 +3,7 @@ import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { query } from '../db';
+import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -132,23 +133,12 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 // ─────────────────────────────────────────
 // GET CURRENT USER
 // ─────────────────────────────────────────
-router.get('/me', async (req: Request, res: Response): Promise<void> => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Not authenticated' });
-    return;
-  }
-
-  const token = authHeader.split(' ')[1];
-
+router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
-
     const result = await query(
       `SELECT id, username, email, display_name, bio, avatar_url, created_at
        FROM users WHERE id = $1`,
-      [payload.userId]
+      [req.user!.userId]
     );
 
     if (result.rows.length === 0) {
@@ -158,7 +148,7 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
 
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(401).json({ error: 'Invalid token' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
