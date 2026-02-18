@@ -19,3 +19,14 @@ app.get('/health', async (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+import { searchAlbums } from './services/musicbrainz';
+
+app.get('/test-search', async (req, res) => {
+  try {
+    const results = await searchAlbums('dark side of the moon');
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
