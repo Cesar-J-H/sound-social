@@ -1,11 +1,17 @@
 import express from 'express';
-import './db'
+import dotenv from 'dotenv';
 import { query } from './db';
+import authRoutes from './routes/auth';
+
+dotenv.config();
 
 const app = express();
 const PORT = 4000;
 
 app.use(express.json());
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 app.get('/health', async (_req, res) => {
   try {
@@ -18,15 +24,4 @@ app.get('/health', async (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-});
-
-import { searchAlbums } from './services/musicbrainz';
-
-app.get('/test-search', async (req, res) => {
-  try {
-    const results = await searchAlbums('dark side of the moon');
-    res.json(results);
-  } catch (err) {
-    res.status(500).json({ error: 'Search failed' });
-  }
 });
