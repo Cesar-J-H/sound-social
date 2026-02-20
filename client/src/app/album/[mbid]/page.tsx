@@ -217,7 +217,13 @@ export default function AlbumPage() {
                 {album.release_date && (
                   <div className="flex justify-between">
                     <span className="text-zinc-400">Released</span>
-                    <span className="text-zinc-700">{album.release_date}</span>
+                    <span className="text-zinc-700">
+                        {new Date(album.release_date).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                        })}
+                    </span>
                   </div>
                 )}
                 {album.album_type && (

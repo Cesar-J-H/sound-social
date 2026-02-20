@@ -7,6 +7,16 @@ import {
 } from '../services/musicbrainz';
 import { query } from '../db';
 
+function parseDate(dateStr?: string): string | null {
+  if (!dateStr) return null;
+  // Handle year-only dates like "1990"
+  if (dateStr.length === 4) return `${dateStr}-01-01`;
+  // Handle year-month dates like "1990-11"
+  if (dateStr.length === 7) return `${dateStr}-01`;
+  // Full date "1990-11-04"
+  return dateStr;
+}
+
 const router = Router();
 
 // ─────────────────────────────────────────
@@ -51,19 +61,73 @@ router.get('/albums/:mbid', async (req: Request, res: Response): Promise<void> =
     );
 
     if (existing.rows.length > 0) {
-      // Get tracks from database
       const tracks = await query(
         `SELECT * FROM tracks WHERE album_id = $1 ORDER BY track_number`,
         [existing.rows[0].id]
       );
-
       res.json({ ...existing.rows[0], tracks: tracks.rows });
       return;
     }
 
     // Not in database — fetch from MusicBrainz
     const albumData = await getFullAlbum(mbid);
-    res.json(albumData);
+
+    // Save artist if they don't exist yet
+    let artistId: string;
+    const existingArtist = await query(
+      `SELECT id FROM artists WHERE mbid = $1`,
+      [albumData.artist_mbid]
+    );
+
+    if (existingArtist.rows.length > 0) {
+      artistId = existingArtist.rows[0].id;
+    } else {
+      const newArtist = await query(
+        `INSERT INTO artists (mbid, name)
+         VALUES ($1, $2)
+         RETURNING id`,
+        [albumData.artist_mbid, albumData.artist]
+      );
+      artistId = newArtist.rows[0].id;
+    }
+
+    // Save album
+    const newAlbum = await query(
+      `INSERT INTO albums (mbid, artist_id, title, cover_url, release_date, album_type)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [
+        albumData.mbid,
+        artistId,
+        albumData.title,
+        albumData.cover_url,
+        parseDate(albumData.release_date),
+        albumData.album_type || null,
+      ]
+    );
+
+    const albumId = newAlbum.rows[0].id;
+
+    // Save tracks
+    if (albumData.tracks.length > 0) {
+      for (const track of albumData.tracks) {
+        await query(
+          `INSERT INTO tracks (mbid, album_id, artist_id, title, duration_ms, track_number)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (mbid) DO NOTHING`,
+          [
+            track.mbid,
+            albumId,
+            artistId,
+            track.title,
+            track.duration_ms || null,
+            track.track_number || null,
+          ]
+        );
+      }
+    }
+
+    res.json({ ...albumData, id: albumId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to get album' });
