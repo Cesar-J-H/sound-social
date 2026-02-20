@@ -1,5 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { searchAlbums, searchArtists, searchTracks, getCoverArt } from '../services/musicbrainz';
+import {
+  searchAlbums,
+  searchArtists,
+  searchTracks,
+  getFullAlbum,
+} from '../services/musicbrainz';
 import { query } from '../db';
 
 const router = Router();
@@ -30,33 +35,35 @@ router.get('/search', async (req: Request, res: Response): Promise<void> => {
 });
 
 // ─────────────────────────────────────────
-// GET ALBUM BY MBID
+// GET FULL ALBUM BY MBID
 // ─────────────────────────────────────────
 router.get('/albums/:mbid', async (req: Request, res: Response): Promise<void> => {
   const mbid = req.params.mbid as string;
 
   try {
-    // Check if album already exists in our database
+    // Check database first
     const existing = await query(
-      `SELECT albums.*, artists.name AS artist_name
-       FROM albums 
+      `SELECT albums.*, artists.name AS artist_name, artists.mbid AS artist_mbid
+       FROM albums
        JOIN artists ON artists.id = albums.artist_id
        WHERE albums.mbid = $1`,
       [mbid]
     );
 
     if (existing.rows.length > 0) {
-      res.json(existing.rows[0]);
+      // Get tracks from database
+      const tracks = await query(
+        `SELECT * FROM tracks WHERE album_id = $1 ORDER BY track_number`,
+        [existing.rows[0].id]
+      );
+
+      res.json({ ...existing.rows[0], tracks: tracks.rows });
       return;
     }
 
-    // Not in database yet — fetch from MusicBrainz
-    const [albumData, coverUrl] = await Promise.all([
-      searchAlbums(mbid),
-      getCoverArt(mbid),
-    ]);
-
-    res.json({ ...albumData, cover_url: coverUrl });
+    // Not in database — fetch from MusicBrainz
+    const albumData = await getFullAlbum(mbid);
+    res.json(albumData);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to get album' });

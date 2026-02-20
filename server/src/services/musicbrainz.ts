@@ -104,3 +104,52 @@ export async function searchTracks(query: string) {
     album_mbid: track.releases?.[0]?.id,
   }));
 }
+
+// ─────────────────────────────────────────
+// GET FULL ALBUM WITH TRACKS
+// ─────────────────────────────────────────
+export async function getFullAlbum(mbid: string) {
+  // Get the release group (album)
+  const releaseGroup = await mbClient.get(`/release-group/${mbid}`, {
+    params: {
+      inc: 'artists+releases',
+      fmt: 'json',
+    },
+  });
+
+  const album = releaseGroup.data;
+
+  // Get the first release to fetch tracklist
+  const firstRelease = album.releases?.[0];
+  let tracks: any[] = [];
+
+  if (firstRelease) {
+    const release = await mbClient.get(`/release/${firstRelease.id}`, {
+      params: {
+        inc: 'recordings',
+        fmt: 'json',
+      },
+    });
+
+    tracks = release.data.media?.[0]?.tracks?.map((t: any) => ({
+      mbid: t.recording.id,
+      title: t.title,
+      track_number: t.number,
+      duration_ms: t.length,
+    })) || [];
+  }
+
+  // Get cover art
+  const cover_url = await getCoverArt(mbid);
+
+  return {
+    mbid: album.id,
+    title: album.title,
+    artist: album['artist-credit']?.[0]?.artist?.name,
+    artist_mbid: album['artist-credit']?.[0]?.artist?.id,
+    release_date: album['first-release-date'],
+    album_type: album['primary-type'],
+    cover_url,
+    tracks,
+  };
+}
