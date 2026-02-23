@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '../../lib/api';
+import RatingModal from '@/app/components/music/RatingModal';
 
 interface Track {
   mbid: string;
@@ -13,6 +14,7 @@ interface Track {
 }
 
 interface Album {
+  id: string;
   mbid: string;
   title: string;
   artist: string;
@@ -37,6 +39,9 @@ export default function AlbumPage() {
   const [album, setAlbum] = useState<Album | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchAlbum = async () => {
@@ -144,8 +149,8 @@ export default function AlbumPage() {
 
               {/* Action buttons */}
               <div className="flex items-center gap-3 mt-6">
-                <button className="btn-primary">
-                  ★ Rate this album
+                <button className="btn-primary" onClick={() => setShowRatingModal(true)}>
+                  {userRating ? `★ Your rating: ${userRating}` : '★ Rate this album'}
                 </button>
                 <button className="btn-outline">
                   ✍ Write a review
@@ -242,6 +247,17 @@ export default function AlbumPage() {
 
         </div>
       </div>
+      {/* Rating Modal */}
+      {showRatingModal && album.mbid && (
+        <RatingModal
+          entityType="album"
+          entityId={album.id}
+          entityName={album.title}
+          currentRating={userRating || undefined}
+          onRated={(rating) => setUserRating(rating)}
+          onClose={() => setShowRatingModal(false)}
+        />
+      )}
     </div>
   );
 }

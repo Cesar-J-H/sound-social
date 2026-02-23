@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { query } from './db';
 import authRoutes from './routes/auth';
 import musicRoutes from './routes/music';
+import ratingRoutes from './routes/rating';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/music', musicRoutes);
+app.use('/api/ratings', ratingRoutes);
 
 app.get('/health', async (_req, res) => {
   try {
