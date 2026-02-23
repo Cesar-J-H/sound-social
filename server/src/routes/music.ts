@@ -5,8 +5,11 @@ import {
   searchTracks,
   getFullAlbum,
   getCoverArt,
+  mbClient,
 } from '../services/musicbrainz';
 import { query } from '../db';
+
+export
 
 function parseDate(dateStr?: string): string | null {
   if (!dateStr) return null;
@@ -20,6 +23,8 @@ function parseDate(dateStr?: string): string | null {
 
 const router = Router();
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // ─────────────────────────────────────────
 // SEARCH
 // ─────────────────────────────────────────
@@ -32,11 +37,11 @@ router.get('/search', async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    const [artists, albums, tracks] = await Promise.all([
-      searchArtists(q),
-      searchAlbums(q),
-      searchTracks(q),
-    ]);
+    const artists = await searchArtists(q);
+    await delay(200); // Add delay between requests to avoid rate limiting
+    const albums = await searchAlbums(q);
+    await delay(200); // Add delay between requests to avoid rate limiting
+    const tracks = await searchTracks(q);
 
     // Check database for any albums we already have saved
     const mbids = albums.map((a: any) => a.mbid);
@@ -59,11 +64,15 @@ router.get('/search', async (req: Request, res: Response): Promise<void> => {
           avg_rating: savedAlbum.avg_rating,
           rating_count: savedAlbum.rating_count,
         };
-      } else {
-        // Fetch cover art from MusicBrainz if not in database
-        const cover_url = await getCoverArt(album.mbid);
-        return { ...album, cover_url: cover_url || null };
       }
+      let cover_url = null;
+      // Fetch cover art from MusicBrainz if not in database
+      try {
+        const cover_url = await getCoverArt(album.mbid);
+      } catch {
+        cover_url = null;
+      }
+      return { ...album, cover_url };
     }));
 
     res.json({ artists, albums: enrichedAlbums, tracks });
@@ -160,6 +169,71 @@ router.get('/albums/:mbid', async (req: Request, res: Response): Promise<void> =
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to get album' });
+  }
+});
+
+router.get('/artists/:mbid', async (req: Request, res: Response): Promise<void> => {
+  const mbid = req.params.mbid as string;
+
+  try {
+    // Check database first
+    const existing = await query(
+      `SELECT * FROM artists WHERE mbid = $1`,
+      [mbid]
+    );
+
+    let artist;
+
+    if (existing.rows.length > 0) {
+      artist = existing.rows[0];
+    } else {
+      // Fetch from MusicBrainz
+      const { data } = await mbClient.get(`/artist/${mbid}`, {
+        params: {
+          inc: 'release-groups+tags+url-rels',
+          fmt: 'json',
+        },
+      });
+
+      // Save to database
+      const result = await query(
+        `INSERT INTO artists (mbid, name, genres)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (mbid) DO UPDATE SET name = $2
+         RETURNING *`,
+        [
+          data.id,
+          data.name,
+          data.tags?.slice(0, 5).map((t: any) => t.name) || [],
+        ]
+      );
+
+      artist = {
+        ...result.rows[0],
+        formed_year: data['life-span']?.begin?.slice(0, 4) || null,
+        country: data.country || null,
+        type: data.type || null,
+        releases: data['release-groups']
+          ?.filter((r: any) => r['primary-type'] === 'Album')
+          .map((r: any) => ({
+            mbid: r.id,
+            title: r.title,
+            release_date: r['first-release-date'],
+            album_type: r['primary-type'],
+          })) || [],
+      };
+    }
+
+    // Get albums from database for this artist
+    const albums = await query(
+      `SELECT * FROM albums WHERE artist_id = $1 ORDER BY release_date DESC`,
+      [artist.id]
+    );
+
+    res.json({ ...artist, albums: albums.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to get artist' });
   }
 });
 

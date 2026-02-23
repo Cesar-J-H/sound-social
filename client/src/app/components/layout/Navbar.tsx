@@ -51,7 +51,7 @@ export default function Navbar() {
       } finally {
         setIsSearching(false);
       }
-    }, 400);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);

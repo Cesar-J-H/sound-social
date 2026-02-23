@@ -182,6 +182,18 @@ export default function AlbumPage() {
                       index !== album.tracks.length - 1 ? 'border-b border-zinc-100' : ''
                     }`}
                   >
+                    {/* Album cover as track image */}
+                    <div className="w-8 h-8 rounded bg-zinc-100 overflow-hidden shrink-0">
+                      {album.cover_url ? (
+                        <img
+                          src={album.cover_url}
+                          alt={album.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-300 text-xs">♪</div>
+                      )}
+                    </div>
                     <span className="text-zinc-300 font-mono text-sm w-5 text-right shrink-0">
                       {track.track_number}
                     </span>
