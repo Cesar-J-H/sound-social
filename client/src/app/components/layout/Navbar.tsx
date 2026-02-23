@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '../../lib/store';
-import api from '../../lib/api';
+import { useAuthStore } from '@/lib/store';
+import api from '@/lib/api';
 
 interface SearchResults {
   artists: { mbid: string; name: string; country?: string }[];

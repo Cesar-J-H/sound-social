@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import api from '../../lib/api';
-import { useAuthStore } from '../../lib/store';
+import api from '@/lib/api';
+import { useAuthStore } from '@/lib/store';
 
 interface RatingModalProps {
   entityType: 'album' | 'track';

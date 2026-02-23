@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import api from '../../lib/api';
-import RatingModal from '@/app/components/music/RatingModal';
+import api from '@/lib/api';
+import RatingModal from '@/components/music/RatingModal';
 
 interface Track {
   mbid: string;
