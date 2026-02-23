@@ -4,6 +4,7 @@ import {
   searchArtists,
   searchTracks,
   getFullAlbum,
+  getCoverArt,
 } from '../services/musicbrainz';
 import { query } from '../db';
 
@@ -37,7 +38,35 @@ router.get('/search', async (req: Request, res: Response): Promise<void> => {
       searchTracks(q),
     ]);
 
-    res.json({ artists, albums, tracks });
+    // Check database for any albums we already have saved
+    const mbids = albums.map((a: any) => a.mbid);
+    const saved = mbids.length > 0 ? await query(
+      `SELECT mbid, cover_url, avg_rating, rating_count 
+       FROM albums WHERE mbid = ANY($1)`,
+      [mbids]
+    ) : { rows: [] };
+
+    // Merge database data into search results
+    const savedMap = new Map(saved.rows.map((r: any) => [r.mbid, r]));
+
+    // Fetch cover art for unsaved albums
+    const enrichedAlbums = await Promise.all(albums.map(async (album: any) => {
+      const savedAlbum = savedMap.get(album.mbid);
+      if (savedAlbum) {
+        return { 
+          ...album, 
+          cover_url: savedAlbum.cover_url,
+          avg_rating: savedAlbum.avg_rating,
+          rating_count: savedAlbum.rating_count,
+        };
+      } else {
+        // Fetch cover art from MusicBrainz if not in database
+        const cover_url = await getCoverArt(album.mbid);
+        return { ...album, cover_url: cover_url || null };
+      }
+    }));
+
+    res.json({ artists, albums: enrichedAlbums, tracks });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Search failed' });

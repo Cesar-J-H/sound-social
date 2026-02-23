@@ -8,7 +8,7 @@ import api from '@/lib/api';
 
 interface SearchResults {
   artists: { mbid: string; name: string; country?: string }[];
-  albums: { mbid: string; title: string; artist: string; release_date?: string }[];
+  albums: { mbid: string; title: string; artist: string; release_date?: string; cover_url?: string }[];
   tracks: { mbid: string; title: string; artist: string; album?: string }[];
 }
 
@@ -156,7 +156,15 @@ export default function Navbar() {
                         className="flex items-center gap-3 px-4 py-3 hover:bg-orange-50 transition-colors"
                     >
                         <div className="w-8 h-8 rounded bg-zinc-100 flex items-center justify-center shrink-0 text-zinc-400 text-xs">
-                        ♪
+                          {album.cover_url ? (
+                            <img
+                              src={album.cover_url}
+                              alt={album.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-zinc-400 text-xs">♪</span>
+                          )}
                         </div>
                         <div>
                         <div className="text-sm font-medium text-zinc-900">{album.title}</div>

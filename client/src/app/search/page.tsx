@@ -19,6 +19,9 @@ interface Album {
   artist_mbid: string;
   release_date?: string;
   album_type?: string;
+  cover_url?: string;
+  avg_rating?: number;
+  rating_count?: number;
 }
 
 interface Track {
@@ -197,7 +200,15 @@ export default function SearchPage() {
                       className="group flex flex-col gap-2"
                     >
                       <div className="aspect-square rounded-xl bg-zinc-100 flex items-center justify-center overflow-hidden">
-                        <span className="text-4xl text-zinc-300">♪</span>
+                        {album.cover_url ? (
+                          <img
+                            src={album.cover_url}
+                            alt={album.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <span className="text-4xl text-zinc-300">♪</span>
+                        )}
                       </div>
                       <div>
                         <div className="text-sm font-medium text-zinc-900 group-hover:text-orange-500 transition-colors truncate">
